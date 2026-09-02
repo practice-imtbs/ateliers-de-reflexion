@@ -6,8 +6,8 @@ document (PDF ou texte collé), en reproduisant le format de l'activité
 
 **→ https://practice-imtbs.github.io/ateliers-de-reflexion/**
 
-Rien à installer, aucune clé à saisir : dépose un PDF, choisis le modèle,
-génère. Les questions sont modifiables dans la page avant d'être copiées ou
+Rien à installer, aucune clé à saisir, aucun réglage : dépose un PDF, génère.
+Les questions sont modifiables dans la page avant d'être copiées ou
 téléchargées en `.md`.
 
 ## Où est la clé
@@ -28,10 +28,12 @@ hors dépôt public.
 
 ## Modèle
 
-La liste des modèles est chargée en direct depuis OpenRouter : les nouveautés
-apparaissent seules. Défaut : `~deepseek/deepseek-v4-flash-latest` (le tilde
-fait partie de l'identifiant), contexte 1,3 M tokens — un document de 126 pages
-passe entier, pour environ 0,6 centime.
+**DeepSeek V4 Flash**, fixé — il n'y a rien à choisir dans la page.
+L'identifiant `~deepseek/deepseek-v4-flash-latest` est un alias qui suit
+automatiquement la dernière version de la famille (le tilde en fait partie).
+
+Contexte de 1,3 M tokens : un document de 126 pages passe entier, sans
+découpage, pour environ 0,6 centime.
 
 ## Limites
 

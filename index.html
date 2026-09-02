@@ -127,31 +127,6 @@
   </section>
 
   <section class="carte">
-    <h2><i class="num">3</i> Modèle</h2>
-    <div>
-      <label for="filtre">Choisir le modèle</label>
-      <input id="filtre" placeholder="Filtrer : deepseek, glm, gemini, mistral…" style="margin-bottom:8px">
-      <select id="modele"><option>Chargement de la liste…</option></select>
-      <div class="aide" id="infoModele">Liste chargée en direct depuis OpenRouter : les modèles les plus récents y apparaissent automatiquement.</div>
-    </div>
-    <details style="margin-top:16px">
-      <summary style="cursor:pointer;font-size:12.5px;color:var(--gris)">Réglages avancés</summary>
-      <div class="grille" style="margin-top:12px">
-        <div>
-          <label for="url">Endpoint</label>
-          <input id="url">
-          <div class="aide">Relais qui détient la clé. À ne changer que si le Worker déménage.</div>
-        </div>
-        <div>
-          <label for="seuil">Seuil de découpage (caractères)</label>
-          <input type="number" id="seuil" value="400000" step="10000">
-          <div class="aide">Ajusté automatiquement au contexte du modèle. Au-delà, le document est résumé par tronçons.</div>
-        </div>
-      </div>
-    </details>
-  </section>
-
-  <section class="carte">
     <div class="barreAct">
       <button class="primaire" id="go" disabled>Générer les questions</button>
       <button class="second" id="copierPrompt" disabled>Copier le prompt complet</button>
@@ -188,12 +163,16 @@
    Code du relais : dossier worker/ du projet. */
 const RELAIS = 'https://ateliers-de-reflexion.practice-a86.workers.dev/';
 
-/* ============================ Catalogue OpenRouter ============================ */
-const API_MODELES = 'https://openrouter.ai/api/v1/models';
-// Familles mises en avant : 2 modèles chacune au maximum, les plus récents d'abord.
-const VEDETTES = [/deepseek.*flash/i, /glm.*flash/i, /glm-?\d(?!.*flash)/i,
-                  /gemini.*flash/i, /mistral-(medium|large)/i];
-let CATALOGUE = [];
+/* ============================ Modèle ============================ */
+/* Modèle unique, non modifiable depuis la page : DeepSeek V4 Flash.
+   Le tilde fait partie de l'identifiant — c'est l'alias qui suit
+   automatiquement la dernière version de la famille. */
+const MODELE = '~deepseek/deepseek-v4-flash-latest';
+
+/* Contexte du modèle : 1,3 M tokens. Le découpage se déclenche à ~55 % de ce
+   contexte, en comptant ~3,5 caractères par token — soit bien au-delà des
+   documents habituels, qui partent donc entiers. */
+const SEUIL = 2500000;
 
 const INTRO = "Nous sommes heureux de vous fournir une liste de questions de niveau supérieur. Ces questions peuvent être utilisées de différentes manières, par exemple dans le cadre d'activités de groupe en classe ou simplement en les partageant avec vos étudiants via votre LMS. Nous vous encourageons à intégrer ces questions dans votre enseignement afin d'encourager la pensée critique et d'engager vos étudiants dans des discussions intéressantes.";
 
@@ -366,7 +345,7 @@ async function charger(file){
       $('#infoDoc').innerHTML =
         `<strong>${file.name}</strong> — ${pages ? pages+' pages, ' : ''}` +
         `${mots.toLocaleString('fr-FR')} mots, ${texteDoc.length.toLocaleString('fr-FR')} caractères` +
-        (texteDoc.length > +$('#seuil').value
+        (texteDoc.length > SEUIL
           ? ` · <span style="color:var(--violet)">découpage automatique activé</span>` : '');
     }
   } catch(e){
@@ -374,7 +353,6 @@ async function charger(file){
     message('Lecture impossible : ' + e.message, 'err');
   }
   majBoutons();
-  if (typeof majInfoModele === 'function') majInfoModele();
 }
 
 $('#zone').onclick = () => $('#fichier').click();
@@ -386,14 +364,12 @@ $('#fichier').onchange = e => e.target.files[0] && charger(e.target.files[0]);
 $('#zone').addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]; if (f) charger(f);
 });
-$('#colle').oninput = () => { majBoutons(); majInfoModele(); };
+$('#colle').oninput = () => { majBoutons(); };
 
 /* ============================ Appel API ============================ */
 async function appeler(messages, temperature, reessai){
-  const url = $('#url').value.trim();
-  const modele = ($('#modele').value || '').trim();
-  if (!url) throw new Error("Aucun endpoint défini. Renseigne l'adresse du relais dans les réglages avancés.");
-  if (!modele) throw new Error("Nom du modèle manquant.");
+  const url = RELAIS;
+  const modele = MODELE;
 
   const entetes = { 'Content-Type':'application/json' };
   const motDePasse = relire('adr_motdepasse');
@@ -495,7 +471,7 @@ $('#go').onclick = async () => {
 
   try{
     let source = txt;
-    if (txt.length > +$('#seuil').value){
+    if (txt.length > SEUIL){
       source = await condenser(txt);
     }
     etat('Rédaction des questions…', 92);
@@ -573,118 +549,6 @@ $('#telecharger').onclick = () => {
   URL.revokeObjectURL(a.href);
 };
 
-/* ============================ Catalogue & initialisation ============================ */
-function fmtCtx(n){
-  if (!n) return '?';
-  return n >= 1e6 ? (n/1e6).toFixed(1).replace('.0','')+' M'
-       : n >= 1e3 ? Math.round(n/1e3)+' k' : String(n);
-}
-function fmtPrix(m){
-  const p = parseFloat(m?.pricing?.prompt ?? 'NaN') * 1e6;
-  if (!isFinite(p)) return '';
-  return p === 0 ? ' · gratuit' : ` · $${p.toFixed(p < 1 ? 3 : 2)}/M`;
-}
-function libelle(m){
-  return `${m.name || m.id} — ctx ${fmtCtx(m.context_length)}${fmtPrix(m)}`;
-}
-
-function peupler(){
-  const q = $('#filtre').value.trim().toLowerCase();
-  const sel = $('#modele');
-  const garde = sel.value;
-  let liste = CATALOGUE;
-  if (q) liste = liste.filter(m => (m.id + ' ' + (m.name||'')).toLowerCase().includes(q));
-
-  sel.innerHTML = '';
-  if (!liste.length){
-    sel.insertAdjacentHTML('beforeend', '<option value="">Aucun modèle ne correspond</option>');
-    return;
-  }
-  const vedettes = [];
-  VEDETTES.forEach(rx => {
-    liste.filter(m => rx.test(m.id) && !vedettes.includes(m))
-      // Les alias « latest » d'abord (ils suivent les nouvelles versions), puis le plus récent.
-      .sort((a,b) => (b.id.startsWith('~') - a.id.startsWith('~')) || ((b.created||0) - (a.created||0)))
-      .slice(0, 2)
-      .forEach(m => vedettes.push(m));
-  });
-
-  const grp = (titre, items) => {
-    if (!items.length) return;
-    const og = document.createElement('optgroup');
-    og.label = titre;
-    items.forEach(m => {
-      const o = document.createElement('option');
-      o.value = m.id; o.textContent = libelle(m);
-      og.appendChild(o);
-    });
-    sel.appendChild(og);
-  };
-  grp('Recommandés', vedettes);
-  grp(q ? 'Résultats' : 'Tous les modèles', liste.filter(m => !vedettes.includes(m)));
-
-  if ([...sel.options].some(o => o.value === garde)) sel.value = garde;
-  majInfoModele();
-}
-
-function majInfoModele(){
-  const m = CATALOGUE.find(x => x.id === $('#modele').value);
-  if (!m) return;
-  memoriser('adr_modele', m.id);
-  // Le découpage se déclenche à ~55 % du contexte, en comptant ~3,5 caractères par token.
-  const seuil = Math.max(60000, Math.round((m.context_length || 32000) * 0.55 * 3.5));
-  $('#seuil').value = seuil;
-  const cs = contenu().length;
-  $('#infoModele').innerHTML =
-    `<code>${m.id}</code> — contexte ${fmtCtx(m.context_length)}${fmtPrix(m)} en entrée.` +
-    (cs > 200
-      ? cs > seuil
-        ? ` Ton document dépasse ce que ce modèle avale d'un coup : <span style="color:var(--violet)">découpage automatique</span>.`
-        : ` <span style="color:var(--ok)">Ton document passe entier, sans découpage.</span>`
-      : '');
-}
-
-async function chargerCatalogue(){
-  try{
-    const r = await fetch(API_MODELES);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const j = await r.json();
-    CATALOGUE = (j.data || [])
-      .filter(m => !/:batch$/.test(m.id))
-      .filter(m => {
-        const a = m.architecture || {};
-        const io = a.input_modalities, oo = a.output_modalities;
-        return (!io || io.includes('text')) && (!oo || oo.includes('text'));
-      })
-      .sort((a,b) => (a.name || a.id).localeCompare(b.name || b.id));
-    peupler();
-    const garde = relire('adr_modele');
-    if (garde && CATALOGUE.some(m => m.id === garde)) $('#modele').value = garde;
-    else {
-      const def = CATALOGUE.find(m => /deepseek.*v4-flash-latest/.test(m.id))
-               || CATALOGUE.find(m => /deepseek.*flash/i.test(m.id));
-      if (def) $('#modele').value = def.id;
-    }
-    majInfoModele();
-  } catch(e){
-    $('#modele').innerHTML = '<option value="">Liste indisponible</option>';
-    $('#infoModele').innerHTML =
-      `<span style="color:var(--err)">Impossible de charger la liste des modèles (${e.message}).</span>
-       Saisis l'identifiant à la main, par exemple <code>~deepseek/deepseek-v4-flash-latest</code>
-       (le tilde fait partie de l'identifiant de l'alias).`;
-    $('#modele').outerHTML =
-      '<input id="modele" value="~deepseek/deepseek-v4-flash-latest">';
-  }
-}
-
-(function init(){
-  $('#url').value = RELAIS;
-  $('#filtre').oninput = peupler;
-  document.addEventListener('change', e => {
-    if (e.target.id === 'modele') majInfoModele();
-  });
-  chargerCatalogue();
-})();
 </script>
 </body>
 </html>
