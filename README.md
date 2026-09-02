@@ -1,8 +1,8 @@
 # Ateliers de réflexion
 
 Génère des questions de réflexion de haut niveau taxonomique à partir d'un
-document (PDF ou texte collé), en reproduisant le format de l'activité
-« Ateliers de réflexion » de Nolej.
+document (PDF ou texte collé) : des mises en situation concrètes, ouvertes,
+sans réponse unique, situées aux niveaux 3 à 5 de la taxonomie de Bloom.
 
 **→ https://practice-imtbs.github.io/ateliers-de-reflexion/**
 
@@ -39,8 +39,8 @@ découpage, pour environ 0,6 centime.
 
 - PDF scannés non pris en charge (pas d'OCR) — la page le signale
 - Word (.docx) non pris en charge : passer par un export PDF
-- Une seule activité : les autres formats Nolej (QCM, glossaire, flashcards) ne
-  sont pas couverts
+- Un seul format de sortie : les questions de réflexion. Ni QCM, ni glossaire,
+  ni cartes de révision
 
 ---
 

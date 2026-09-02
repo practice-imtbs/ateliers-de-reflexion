@@ -112,7 +112,7 @@
       <div>
         <label for="adresse">Adresse</label>
         <select id="adresse">
-          <option value="tutoiement">Tutoiement (comme Nolej)</option>
+          <option value="tutoiement">Tutoiement</option>
           <option value="vouvoiement">Vouvoiement</option>
         </select>
       </div>
@@ -120,7 +120,7 @@
     <div style="margin-top:14px">
       <label for="persona">Public visé</label>
       <input id="persona" placeholder="Laisse vide : le modèle le déduit du document">
-      <div class="aide">Nolej vise l'apprenant décrit par le document, pas son lecteur officiel.
+      <div class="aide">Les questions s'adressent à l'apprenant décrit par le document, pas à son lecteur officiel.
         Sur un rapport d'accréditation qui décrit un master, le public est <em>l'étudiant du master</em>.
         Si le résultat vise la mauvaise personne, force-le ici.</div>
     </div>
@@ -174,7 +174,7 @@ const MODELE = '~deepseek/deepseek-v4-flash-latest';
    documents habituels, qui partent donc entiers. */
 const SEUIL = 2500000;
 
-const INTRO = "Nous sommes heureux de vous fournir une liste de questions de niveau supérieur. Ces questions peuvent être utilisées de différentes manières, par exemple dans le cadre d'activités de groupe en classe ou simplement en les partageant avec vos étudiants via votre LMS. Nous vous encourageons à intégrer ces questions dans votre enseignement afin d'encourager la pensée critique et d'engager vos étudiants dans des discussions intéressantes.";
+const INTRO = "Voici une série de questions ouvertes, conçues pour faire raisonner plutôt que pour vérifier des connaissances. Chacune place l'apprenant dans une situation concrète et n'admet pas de réponse unique. À utiliser en amorce de séance, en travail de groupe, en devoir de réflexion ou en fil de discussion sur votre plateforme. Reprenez-les et ajustez-les librement à votre contexte.";
 
 /* ============================ Prompts ============================ */
 const SYSTEME = `Tu es un ingénieur pédagogique spécialisé dans la conception de questions de haut niveau taxonomique. Ta seule tâche est de produire une liste de questions de réflexion à partir d'un document source.
