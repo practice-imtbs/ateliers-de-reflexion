@@ -77,6 +77,11 @@
   ol li [contenteditable]{outline:0}
   ol li [contenteditable]:focus{background:#fffbe8;border-radius:4px}
   footer{text-align:center;color:var(--gris);font-size:11.5px;padding:0 20px}
+  footer p{margin:0}
+  footer .credit{margin-top:10px;padding-top:10px;border-top:1px solid var(--bord);
+    display:inline-block;line-height:1.6}
+  footer a{color:var(--violet);text-decoration:none}
+  footer a:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -162,7 +167,11 @@
     <div class="aide" style="margin-top:14px">Les questions sont modifiables : clique dans le texte pour l'ajuster avant de copier.</div>
   </section>
 
-  <footer>Ton document est lu dans ce navigateur, puis transmis au relais PracTice qui interroge le modèle choisi. Rien n'est conservé.</footer>
+  <footer>
+    <p>Ton document est lu dans ce navigateur, puis transmis au relais PracTice qui interroge le modèle choisi. Rien n'est conservé.</p>
+    <p class="credit">© 2026 Julien MORICE — <a href="mailto:julien.morice@imt-bs.eu">julien.morice@imt-bs.eu</a><br>
+      Institut Mines-Télécom Business School — service PracTice</p>
+  </footer>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
