@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ateliers de réflexion — Générateur</title>
+<style>
+  :root{
+    --violet:#AD1D89; --bleu:#00B8DE; --encre:#1b1b22; --gris:#6b6b78;
+    --bord:#e3e3ea; --fond:#f6f6f9; --carte:#ffffff; --ok:#12805c; --err:#c0392b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fond);color:var(--encre);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+  header{background:var(--carte);border-bottom:1px solid var(--bord);padding:20px 28px}
+  header h1{margin:0;font-size:19px;letter-spacing:-.01em}
+  header h1 span{color:var(--violet)}
+  header p{margin:4px 0 0;color:var(--gris);font-size:13px}
+  main{max-width:940px;margin:0 auto;padding:26px 20px 80px}
+  .carte{background:var(--carte);border:1px solid var(--bord);border-radius:12px;
+    padding:20px 22px;margin-bottom:18px}
+  .carte > h2{margin:0 0 14px;font-size:13px;text-transform:uppercase;
+    letter-spacing:.07em;color:var(--gris);font-weight:600;display:flex;align-items:center;gap:9px}
+  .num{background:var(--violet);color:#fff;width:20px;height:20px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:none}
+  #zone{border:2px dashed var(--bord);border-radius:10px;padding:30px;text-align:center;
+    cursor:pointer;transition:.15s;background:#fcfcfe}
+  #zone:hover,#zone.actif{border-color:var(--violet);background:#fdf6fb}
+  #zone b{color:var(--violet)}
+  #zone small{display:block;color:var(--gris);margin-top:6px}
+  #infoDoc{margin-top:12px;font-size:13px;color:var(--gris);display:none}
+  #infoDoc.on{display:block}
+  textarea,input,select{font:inherit;width:100%;padding:9px 11px;border:1px solid var(--bord);
+    border-radius:8px;background:#fff;color:var(--encre)}
+  textarea{resize:vertical;min-height:90px;font-size:13px}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--bleu);outline-offset:-1px;border-color:var(--bleu)}
+  .grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--gris);margin-bottom:5px}
+  .aide{font-size:11.5px;color:var(--gris);margin-top:5px;line-height:1.4}
+  .aide a{color:var(--violet)}
+  button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:11px 20px;
+    cursor:pointer;transition:.15s}
+  .primaire{background:var(--violet);color:#fff;font-size:15px}
+  .primaire:hover:not(:disabled){background:#95176f}
+  .primaire:disabled{background:#c9c9d2;cursor:not-allowed}
+  .second{background:#fff;color:var(--encre);border:1px solid var(--bord);font-size:13px;padding:8px 14px}
+  .second:hover{border-color:var(--violet);color:var(--violet)}
+  .barreAct{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  #etat{margin-top:14px;font-size:13px;display:none}
+  #etat.on{display:block}
+  #etat .ligne{display:flex;align-items:center;gap:9px;color:var(--gris)}
+  .spin{width:13px;height:13px;border:2px solid var(--bord);border-top-color:var(--violet);
+    border-radius:50%;animation:t .7s linear infinite;flex:none}
+  @keyframes t{to{transform:rotate(360deg)}}
+  .jauge{height:4px;background:var(--bord);border-radius:2px;margin-top:9px;overflow:hidden}
+  .jauge i{display:block;height:100%;width:0;background:var(--bleu);transition:width .3s}
+  .alerte{border-radius:8px;padding:12px 14px;font-size:13px;margin-top:14px;line-height:1.5}
+  .alerte.err{background:#fdeeec;color:var(--err);border:1px solid #f5c6c0}
+  .alerte.info{background:#eefaf6;color:var(--ok);border:1px solid #c3e9dc}
+  #resultats{display:none}
+  #resultats.on{display:block}
+  .intro{font-style:italic;color:#44444f;font-size:13.5px;border-left:3px solid var(--bleu);
+    padding-left:14px;margin-bottom:20px}
+  ol{padding-left:0;list-style:none;margin:0}
+  ol li{position:relative;padding:14px 14px 14px 40px;border:1px solid var(--bord);
+    border-radius:9px;margin-bottom:10px;background:#fcfcfe}
+  ol li::before{content:counter(q);counter-increment:q;position:absolute;left:13px;top:14px;
+    width:19px;height:19px;background:var(--bleu);color:#fff;border-radius:50%;font-size:11px;
+    font-weight:700;display:flex;align-items:center;justify-content:center}
+  ol{counter-reset:q}
+  ol li [contenteditable]{outline:0}
+  ol li [contenteditable]:focus{background:#fffbe8;border-radius:4px}
+  footer{text-align:center;color:var(--gris);font-size:11.5px;padding:0 20px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Ateliers de <span>réflexion</span></h1>
+  <p>Génère des questions de haut niveau taxonomique à partir d'un document — IMT Business School</p>
+</header>
+
+<main>
+
+  <section class="carte">
+    <h2><i class="num">1</i> Document source</h2>
+    <div id="zone">
+      <b>Dépose un PDF ici</b> ou clique pour choisir un fichier
+      <small>PDF, TXT ou Markdown — traité entièrement dans ton navigateur</small>
+    </div>
+    <input type="file" id="fichier" accept=".pdf,.txt,.md" hidden>
+    <div id="infoDoc"></div>
+    <div style="margin-top:14px">
+      <label for="colle">…ou colle directement ton texte</label>
+      <textarea id="colle" placeholder="Colle ici le contenu si tu n'as pas de fichier."></textarea>
+    </div>
+  </section>
+
+  <section class="carte">
+    <h2><i class="num">2</i> Paramètres pédagogiques</h2>
+    <div class="grille">
+      <div>
+        <label for="nb">Nombre de questions</label>
+        <input type="number" id="nb" value="5" min="1" max="15">
+      </div>
+      <div>
+        <label for="langue">Langue de sortie</label>
+        <select id="langue">
+          <option>français</option><option>anglais</option><option>espagnol</option>
+        </select>
+      </div>
+      <div>
+        <label for="adresse">Adresse</label>
+        <select id="adresse">
+          <option value="tutoiement">Tutoiement (comme Nolej)</option>
+          <option value="vouvoiement">Vouvoiement</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label for="persona">Public visé</label>
+      <input id="persona" placeholder="Laisse vide : le modèle le déduit du document">
+      <div class="aide">Nolej vise l'apprenant décrit par le document, pas son lecteur officiel.
+        Sur un rapport d'accréditation qui décrit un master, le public est <em>l'étudiant du master</em>.
+        Si le résultat vise la mauvaise personne, force-le ici.</div>
+    </div>
+  </section>
+
+  <section class="carte">
+    <h2><i class="num">3</i> Modèle</h2>
+    <div>
+      <label for="filtre">Choisir le modèle</label>
+      <input id="filtre" placeholder="Filtrer : deepseek, glm, gemini, mistral…" style="margin-bottom:8px">
+      <select id="modele"><option>Chargement de la liste…</option></select>
+      <div class="aide" id="infoModele">Liste chargée en direct depuis OpenRouter : les modèles les plus récents y apparaissent automatiquement.</div>
+    </div>
+    <details style="margin-top:16px">
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--gris)">Réglages avancés</summary>
+      <div class="grille" style="margin-top:12px">
+        <div>
+          <label for="url">Endpoint</label>
+          <input id="url">
+          <div class="aide">Relais qui détient la clé. À ne changer que si le Worker déménage.</div>
+        </div>
+        <div>
+          <label for="seuil">Seuil de découpage (caractères)</label>
+          <input type="number" id="seuil" value="400000" step="10000">
+          <div class="aide">Ajusté automatiquement au contexte du modèle. Au-delà, le document est résumé par tronçons.</div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="carte">
+    <div class="barreAct">
+      <button class="primaire" id="go" disabled>Générer les questions</button>
+      <button class="second" id="copierPrompt" disabled>Copier le prompt complet</button>
+      <span class="aide" style="margin:0">Pour coller le prompt dans un autre chat.</span>
+    </div>
+    <div id="etat">
+      <div class="ligne"><span class="spin"></span><span id="etatTxt"></span></div>
+      <div class="jauge"><i id="jauge"></i></div>
+    </div>
+    <div id="msg"></div>
+  </section>
+
+  <section class="carte" id="resultats">
+    <h2 style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:9px"><i class="num">✓</i> Résultat</span>
+      <span style="display:flex;gap:8px;text-transform:none;letter-spacing:0">
+        <button class="second" id="copier">Copier</button>
+        <button class="second" id="telecharger">Télécharger .md</button>
+      </span>
+    </h2>
+    <p class="intro" id="introTxt"></p>
+    <ol id="liste"></ol>
+    <div class="aide" style="margin-top:14px">Les questions sont modifiables : clique dans le texte pour l'ajuster avant de copier.</div>
+  </section>
+
+  <footer>Ton document est lu dans ce navigateur, puis transmis au relais PracTice qui interroge le modèle choisi. Rien n'est conservé.</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/* ============================ Relais ============================ */
+/* Aucune clé dans cette page. Les appels passent par un Worker Cloudflare qui
+   détient la clé OpenRouter côté serveur (secret CLE_OPENROUTER).
+   Code du relais : dossier worker/ du projet. */
+const RELAIS = 'https://ateliers-de-reflexion.practice-a86.workers.dev/';
+
+/* ============================ Catalogue OpenRouter ============================ */
+const API_MODELES = 'https://openrouter.ai/api/v1/models';
+// Familles mises en avant : 2 modèles chacune au maximum, les plus récents d'abord.
+const VEDETTES = [/deepseek.*flash/i, /glm.*flash/i, /glm-?\d(?!.*flash)/i,
+                  /gemini.*flash/i, /mistral-(medium|large)/i];
+let CATALOGUE = [];
+
+const INTRO = "Nous sommes heureux de vous fournir une liste de questions de niveau supérieur. Ces questions peuvent être utilisées de différentes manières, par exemple dans le cadre d'activités de groupe en classe ou simplement en les partageant avec vos étudiants via votre LMS. Nous vous encourageons à intégrer ces questions dans votre enseignement afin d'encourager la pensée critique et d'engager vos étudiants dans des discussions intéressantes.";
+
+/* ============================ Prompts ============================ */
+const SYSTEME = `Tu es un ingénieur pédagogique spécialisé dans la conception de questions de haut niveau taxonomique. Ta seule tâche est de produire une liste de questions de réflexion à partir d'un document source.
+
+Tu réponds UNIQUEMENT par la liste des questions. Pas de préambule, pas de commentaire, pas de titre, pas de numérotation, pas de réponses, pas de justification, pas de mention des pages sources.`;
+
+function promptGeneration(doc, p){
+  const persona = p.persona.trim()
+    ? `Public visé : ${p.persona.trim()}. Toutes les questions s'adressent à cette personne.`
+    : `Public visé : déduis-le toi-même (voir étape 1).`;
+  const adresse = p.adresse === 'tutoiement'
+    ? `Tutoie systématiquement la personne.`
+    : `Vouvoie systématiquement la personne (« Vous êtes… », « Que feriez-vous… »).`;
+
+  return `Voici un document source :
+
+<document>
+${doc}
+</document>
+
+Paramètres :
+- Nombre de questions : ${p.nb}
+- Langue de sortie : ${p.langue}
+- ${persona}
+- ${adresse}
+
+### Étape 1 — Identifier le public visé (silencieusement)
+
+Détermine à qui ces questions s'adressent. ATTENTION : ce n'est pas nécessairement le lecteur officiel du document, mais la personne dont le document décrit le parcours, le métier ou l'expérience.
+
+Exemple : un rapport d'auto-évaluation rédigé pour un organisme d'accréditation et qui décrit un programme de master → le public visé est l'étudiant de ce programme, pas l'auditeur.
+
+### Étape 2 — Sélectionner ${p.nb} thèmes distincts (silencieusement)
+
+Repère ${p.nb} passages du document portant sur des sujets nettement différents, répartis dans l'ensemble du document. Interdiction d'en prendre deux qui traitent du même sujet sous deux angles — sauf si un thème est manifestement central, auquel cas tu peux lui consacrer au maximum 2 questions en variant radicalement la situation (individuelle vs collective, par exemple).
+
+Privilégie les passages qui décrivent :
+- des exigences, seuils, prérequis, critères à atteindre
+- des procédures, étapes, méthodologies
+- des règles, chartes, politiques et leurs sanctions
+- des livrables ou productions attendues
+
+Écarte : chiffres de gouvernance, organigrammes, historique institutionnel, budgets, listes de partenaires.
+
+### Étape 3 — Rédiger les questions
+
+Chaque question suit strictement ce moule en deux temps :
+
+1. Une mise en situation qui place la personne dans un scénario concret et plausible tiré du passage source. Commence par « Tu es … » (environ 3 questions sur 5) ou « Imaginons que … » (environ 2 questions sur 5). Alterne les deux amorces, ne commence jamais deux questions consécutives par la même formule.
+
+2. La question elle-même, au conditionnel, ouverte, sans réponse unique : « Que ferais-tu pour … ? », « Quels éléments clés devrais-tu … ? », « Quelles étapes devrais-tu suivre … ? », « Comment expliquerais-tu … ? ». Environ une question sur deux comporte un second volet introduit par « et pourquoi … ? » ou « et comment … ? ».
+
+Contraintes de forme :
+- Longueur : 35 à 55 mots par question, 2 à 3 phrases.
+- Verbes au conditionnel (ferais, devrais, utiliserais, expliquerais).
+- Le fait précis issu du document doit apparaître dans la question (le seuil, le nom de la procédure, le livrable attendu…), pas seulement en toile de fond.
+- Niveaux de Bloom 3 à 5 : appliquer, analyser, évaluer. Aucune question dont la réponse serait une simple recopie du document.
+- Aucune question ne doit pouvoir se répondre par oui/non, ni par un chiffre.
+- Si le document est en anglais et la sortie en ${p.langue}, traduis les notions ; ne conserve dans la langue d'origine que les noms propres et acronymes officiels.
+
+### Format de sortie
+
+Une question par ligne, précédée de « - ». Rien d'autre.`;
+}
+
+function promptExtraction(tronçon, i, n){
+  return `Extrait ${i}/${n} d'un document plus long.
+
+<extrait>
+${tronçon}
+</extrait>
+
+Relève dans cet extrait les passages exploitables pour construire des questions de réflexion destinées aux personnes que ce document concerne : exigences et seuils à atteindre, procédures et méthodologies, règles et sanctions, livrables attendus, situations concrètes vécues.
+
+Écarte : gouvernance, organigrammes, budgets, historique institutionnel, listes de partenaires, tableaux de chiffres.
+
+Rends au maximum 6 passages, un par ligne, sous la forme :
+- THÈME : le fait précis, avec ses valeurs chiffrées et ses noms exacts s'il y en a.
+
+Si l'extrait ne contient rien d'exploitable, réponds exactement : RIEN.`;
+}
+
+/* ============================ Utilitaires ============================ */
+const $ = s => document.querySelector(s);
+let texteDoc = '', nomDoc = '';
+
+function etat(txt, pct){
+  $('#etat').classList.add('on');
+  $('#etatTxt').textContent = txt;
+  $('#jauge').style.width = (pct ?? 0) + '%';
+}
+function finEtat(){ $('#etat').classList.remove('on'); }
+function message(html, type){
+  $('#msg').innerHTML = html ? `<div class="alerte ${type}">${html}</div>` : '';
+}
+function memoriser(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+function relire(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+
+function majBoutons(){
+  const pret = (texteDoc.trim().length > 200) || ($('#colle').value.trim().length > 200);
+  $('#go').disabled = !pret;
+  $('#copierPrompt').disabled = !pret;
+}
+
+function contenu(){
+  const colle = $('#colle').value.trim();
+  return colle.length > 200 ? colle : texteDoc;
+}
+function params(){
+  return {
+    nb: $('#nb').value || 5,
+    langue: $('#langue').value,
+    persona: $('#persona').value,
+    adresse: $('#adresse').value
+  };
+}
+
+/* ============================ Lecture du document ============================ */
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// Les PDF au texte justifié produisent des rafales d'espaces qui gonflent la facture
+// en tokens sans rien apporter. On nettoie sans toucher à la structure en paragraphes.
+function normaliser(t){
+  return t
+    .replace(/\u00AD/g, '')             // traits d'union conditionnels
+    .replace(/[\u00A0\u2007\u202F]/g, ' ') // espaces insécables
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+async function lirePDF(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  const pages = [];
+  for (let i=1; i<=pdf.numPages; i++){
+    etat(`Lecture du PDF — page ${i} / ${pdf.numPages}`, i/pdf.numPages*100);
+    const page = await pdf.getPage(i);
+    const c = await page.getTextContent();
+    pages.push(c.items.map(it => it.str).join(' '));
+  }
+  return {texte: normaliser(pages.join('\n\n')), pages: pdf.numPages};
+}
+
+async function charger(file){
+  message('');
+  try{
+    let pages = null;
+    if (/\.pdf$/i.test(file.name)){
+      if (!window.pdfjsLib) throw new Error("La bibliothèque de lecture PDF n'a pas pu être chargée. Vérifie ta connexion internet, puis recharge la page.");
+      const r = await lirePDF(file);
+      texteDoc = r.texte; pages = r.pages;
+    } else {
+      texteDoc = normaliser(await file.text());
+    }
+    nomDoc = file.name;
+    finEtat();
+    if (texteDoc.trim().length < 200){
+      message("Ce fichier ne contient quasiment aucun texte extractible. S'il s'agit d'un PDF scanné, il faut d'abord le passer à l'OCR.", 'err');
+      texteDoc = '';
+    } else {
+      const mots = texteDoc.trim().split(/\s+/).length;
+      $('#infoDoc').classList.add('on');
+      $('#infoDoc').innerHTML =
+        `<strong>${file.name}</strong> — ${pages ? pages+' pages, ' : ''}` +
+        `${mots.toLocaleString('fr-FR')} mots, ${texteDoc.length.toLocaleString('fr-FR')} caractères` +
+        (texteDoc.length > +$('#seuil').value
+          ? ` · <span style="color:var(--violet)">découpage automatique activé</span>` : '');
+    }
+  } catch(e){
+    finEtat();
+    message('Lecture impossible : ' + e.message, 'err');
+  }
+  majBoutons();
+  if (typeof majInfoModele === 'function') majInfoModele();
+}
+
+$('#zone').onclick = () => $('#fichier').click();
+$('#fichier').onchange = e => e.target.files[0] && charger(e.target.files[0]);
+['dragenter','dragover'].forEach(ev =>
+  $('#zone').addEventListener(ev, e => { e.preventDefault(); $('#zone').classList.add('actif'); }));
+['dragleave','drop'].forEach(ev =>
+  $('#zone').addEventListener(ev, e => { e.preventDefault(); $('#zone').classList.remove('actif'); }));
+$('#zone').addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0]; if (f) charger(f);
+});
+$('#colle').oninput = () => { majBoutons(); majInfoModele(); };
+
+/* ============================ Appel API ============================ */
+async function appeler(messages, temperature, reessai){
+  const url = $('#url').value.trim();
+  const modele = ($('#modele').value || '').trim();
+  if (!url) throw new Error("Aucun endpoint défini. Renseigne l'adresse du relais dans les réglages avancés.");
+  if (!modele) throw new Error("Nom du modèle manquant.");
+
+  const entetes = { 'Content-Type':'application/json' };
+  const motDePasse = relire('adr_motdepasse');
+  if (motDePasse) entetes['X-Mot-De-Passe'] = motDePasse;
+
+  let r;
+  try {
+    r = await fetch(url, {
+      method:'POST',
+      headers: entetes,
+      body: JSON.stringify({ model: modele, messages, temperature, stream:false })
+    });
+  } catch(e){
+    throw new Error("CORS_OU_RESEAU");
+  }
+  if (!r.ok){
+    let d = '';
+    try { d = (await r.json())?.error?.message || ''; } catch(_){ d = await r.text().catch(()=>''); }
+    // Le relais est protégé par un mot de passe : on le demande une fois, puis on retente.
+    if (r.status === 401 && d === 'MOT_DE_PASSE_REQUIS'){
+      if (reessai) throw new Error("Mot de passe refusé.");
+      const saisi = prompt("Mot de passe de l'atelier :");
+      if (!saisi) throw new Error("Mot de passe requis pour utiliser cette page.");
+      memoriser('adr_motdepasse', saisi.trim());
+      return appeler(messages, temperature, true);
+    }
+    if (r.status === 401 || r.status === 403)
+      throw new Error("Le relais a refusé la requête. Préviens l'administrateur de la page.");
+    if (r.status === 402)
+      throw new Error("Le crédit de l'atelier est épuisé. Préviens l'administrateur de la page.");
+    throw new Error(`Le relais a répondu ${r.status}. ${d.slice(0,300)}`);
+  }
+  const j = await r.json();
+  const t = j?.choices?.[0]?.message?.content;
+  if (!t) throw new Error("Réponse vide ou format inattendu de l'API.");
+  return t;
+}
+
+function decouper(txt, taille){
+  const morceaux = [];
+  const paras = txt.split(/\n\s*\n/);
+  let cur = '';
+  for (const p of paras){
+    if (cur.length + p.length > taille && cur){ morceaux.push(cur); cur = ''; }
+    if (p.length > taille){
+      for (let i=0; i<p.length; i+=taille) morceaux.push(p.slice(i, i+taille));
+    } else cur += p + '\n\n';
+  }
+  if (cur.trim()) morceaux.push(cur);
+  return morceaux;
+}
+
+async function enParallele(taches, limite, surAvancement){
+  const res = new Array(taches.length);
+  let idx = 0, faits = 0;
+  async function ouvrier(){
+    while (idx < taches.length){
+      const i = idx++;
+      res[i] = await taches[i]();
+      surAvancement(++faits, taches.length);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(limite, taches.length)}, ouvrier));
+  return res;
+}
+
+async function condenser(txt){
+  const morceaux = decouper(txt, 28000);
+  etat(`Document volumineux — analyse de ${morceaux.length} tronçons`, 2);
+  const taches = morceaux.map((m,i) => async () => {
+    try {
+      const r = await appeler([{role:'user', content: promptExtraction(m, i+1, morceaux.length)}], 0.2);
+      return r.trim() === 'RIEN' ? '' : r.trim();
+    } catch(e){
+      if (e.message === 'CORS_OU_RESEAU') throw e;
+      return '';
+    }
+  });
+  const parts = await enParallele(taches, 4, (f,n) =>
+    etat(`Analyse des tronçons — ${f} / ${n}`, f/n*85));
+  const extrait = parts.filter(Boolean).join('\n');
+  if (extrait.length < 200) throw new Error("L'analyse par tronçons n'a rien remonté d'exploitable. Essaie d'augmenter le seuil de découpage ou de changer de modèle.");
+  return extrait;
+}
+
+function parserQuestions(brut){
+  return brut.split('\n')
+    .map(l => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
+    .filter(l => l.length > 25 && /[?？]/.test(l));
+}
+
+/* ============================ Génération ============================ */
+$('#go').onclick = async () => {
+  const txt = contenu();
+  if (!txt){ message("Aucun document chargé.", 'err'); return; }
+  $('#go').disabled = true;
+  $('#resultats').classList.remove('on');
+  message('');
+
+  try{
+    let source = txt;
+    if (txt.length > +$('#seuil').value){
+      source = await condenser(txt);
+    }
+    etat('Rédaction des questions…', 92);
+    const brut = await appeler([
+      {role:'system', content: SYSTEME},
+      {role:'user',   content: promptGeneration(source, params())}
+    ], 0.8);
+
+    const questions = parserQuestions(brut);
+    finEtat();
+    if (!questions.length){
+      message("Le modèle a répondu mais aucune question n'a pu être extraite. Réponse brute :<br><br><em>"
+        + brut.slice(0,500).replace(/</g,'&lt;') + "</em>", 'err');
+    } else {
+      afficher(questions);
+      message(`${questions.length} question(s) générée(s).`, 'info');
+    }
+  } catch(e){
+    finEtat();
+    if (e.message === 'CORS_OU_RESEAU'){
+      message(`<strong>L'appel n'a pas abouti.</strong> Vérifie ta connexion internet.
+        Si le problème persiste, utilise le bouton <strong>« Copier le prompt complet »</strong>
+        et colle le contenu dans le chat web de ton choix — le résultat sera identique.`, 'err');
+    } else {
+      message(e.message, 'err');
+    }
+  }
+  $('#go').disabled = false;
+};
+
+function afficher(questions){
+  $('#introTxt').textContent = INTRO;
+  const ol = $('#liste');
+  ol.innerHTML = '';
+  questions.forEach(q => {
+    const li = document.createElement('li');
+    const d = document.createElement('div');
+    d.contentEditable = 'true';
+    d.textContent = q;
+    li.appendChild(d);
+    ol.appendChild(li);
+  });
+  $('#resultats').classList.add('on');
+  $('#resultats').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function markdown(){
+  const qs = [...document.querySelectorAll('#liste [contenteditable]')].map(d => d.textContent.trim());
+  return `# Ateliers de réflexion\n\n${INTRO}\n\n` + qs.map(q => `- ${q}`).join('\n') + '\n';
+}
+
+async function presse(txt, bouton, libelle){
+  try { await navigator.clipboard.writeText(txt); }
+  catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  const av = bouton.textContent;
+  bouton.textContent = libelle;
+  setTimeout(() => bouton.textContent = av, 1600);
+}
+
+$('#copier').onclick = e => presse(markdown(), e.target, 'Copié ✓');
+$('#copierPrompt').onclick = e =>
+  presse(SYSTEME + '\n\n---\n\n' + promptGeneration(contenu(), params()), e.target, 'Copié ✓');
+
+$('#telecharger').onclick = () => {
+  const nom = (nomDoc.replace(/\.[^.]+$/,'') || 'document')
+    .replace(/[^A-Za-z0-9_-]+/g,'_');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([markdown()], {type:'text/markdown'}));
+  a.download = `Ateliers_De_Reflexion_${nom}.md`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+/* ============================ Catalogue & initialisation ============================ */
+function fmtCtx(n){
+  if (!n) return '?';
+  return n >= 1e6 ? (n/1e6).toFixed(1).replace('.0','')+' M'
+       : n >= 1e3 ? Math.round(n/1e3)+' k' : String(n);
+}
+function fmtPrix(m){
+  const p = parseFloat(m?.pricing?.prompt ?? 'NaN') * 1e6;
+  if (!isFinite(p)) return '';
+  return p === 0 ? ' · gratuit' : ` · $${p.toFixed(p < 1 ? 3 : 2)}/M`;
+}
+function libelle(m){
+  return `${m.name || m.id} — ctx ${fmtCtx(m.context_length)}${fmtPrix(m)}`;
+}
+
+function peupler(){
+  const q = $('#filtre').value.trim().toLowerCase();
+  const sel = $('#modele');
+  const garde = sel.value;
+  let liste = CATALOGUE;
+  if (q) liste = liste.filter(m => (m.id + ' ' + (m.name||'')).toLowerCase().includes(q));
+
+  sel.innerHTML = '';
+  if (!liste.length){
+    sel.insertAdjacentHTML('beforeend', '<option value="">Aucun modèle ne correspond</option>');
+    return;
+  }
+  const vedettes = [];
+  VEDETTES.forEach(rx => {
+    liste.filter(m => rx.test(m.id) && !vedettes.includes(m))
+      // Les alias « latest » d'abord (ils suivent les nouvelles versions), puis le plus récent.
+      .sort((a,b) => (b.id.startsWith('~') - a.id.startsWith('~')) || ((b.created||0) - (a.created||0)))
+      .slice(0, 2)
+      .forEach(m => vedettes.push(m));
+  });
+
+  const grp = (titre, items) => {
+    if (!items.length) return;
+    const og = document.createElement('optgroup');
+    og.label = titre;
+    items.forEach(m => {
+      const o = document.createElement('option');
+      o.value = m.id; o.textContent = libelle(m);
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  };
+  grp('Recommandés', vedettes);
+  grp(q ? 'Résultats' : 'Tous les modèles', liste.filter(m => !vedettes.includes(m)));
+
+  if ([...sel.options].some(o => o.value === garde)) sel.value = garde;
+  majInfoModele();
+}
+
+function majInfoModele(){
+  const m = CATALOGUE.find(x => x.id === $('#modele').value);
+  if (!m) return;
+  memoriser('adr_modele', m.id);
+  // Le découpage se déclenche à ~55 % du contexte, en comptant ~3,5 caractères par token.
+  const seuil = Math.max(60000, Math.round((m.context_length || 32000) * 0.55 * 3.5));
+  $('#seuil').value = seuil;
+  const cs = contenu().length;
+  $('#infoModele').innerHTML =
+    `<code>${m.id}</code> — contexte ${fmtCtx(m.context_length)}${fmtPrix(m)} en entrée.` +
+    (cs > 200
+      ? cs > seuil
+        ? ` Ton document dépasse ce que ce modèle avale d'un coup : <span style="color:var(--violet)">découpage automatique</span>.`
+        : ` <span style="color:var(--ok)">Ton document passe entier, sans découpage.</span>`
+      : '');
+}
+
+async function chargerCatalogue(){
+  try{
+    const r = await fetch(API_MODELES);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    CATALOGUE = (j.data || [])
+      .filter(m => !/:batch$/.test(m.id))
+      .filter(m => {
+        const a = m.architecture || {};
+        const io = a.input_modalities, oo = a.output_modalities;
+        return (!io || io.includes('text')) && (!oo || oo.includes('text'));
+      })
+      .sort((a,b) => (a.name || a.id).localeCompare(b.name || b.id));
+    peupler();
+    const garde = relire('adr_modele');
+    if (garde && CATALOGUE.some(m => m.id === garde)) $('#modele').value = garde;
+    else {
+      const def = CATALOGUE.find(m => /deepseek.*v4-flash-latest/.test(m.id))
+               || CATALOGUE.find(m => /deepseek.*flash/i.test(m.id));
+      if (def) $('#modele').value = def.id;
+    }
+    majInfoModele();
+  } catch(e){
+    $('#modele').innerHTML = '<option value="">Liste indisponible</option>';
+    $('#infoModele').innerHTML =
+      `<span style="color:var(--err)">Impossible de charger la liste des modèles (${e.message}).</span>
+       Saisis l'identifiant à la main, par exemple <code>~deepseek/deepseek-v4-flash-latest</code>
+       (le tilde fait partie de l'identifiant de l'alias).`;
+    $('#modele').outerHTML =
+      '<input id="modele" value="~deepseek/deepseek-v4-flash-latest">';
+  }
+}
+
+(function init(){
+  $('#url').value = RELAIS;
+  $('#filtre').oninput = peupler;
+  document.addEventListener('change', e => {
+    if (e.target.id === 'modele') majInfoModele();
+  });
+  chargerCatalogue();
+})();
+</script>
+</body>
+</html>
