@@ -147,6 +147,7 @@
       <button class="second" id="copierPrompt" disabled>Copier le prompt complet</button>
       <span class="aide" style="margin:0">Pour coller le prompt dans un autre chat.</span>
     </div>
+    <div class="aide" style="margin-top:10px">Généré avec Qwen 3.6 via ILaaS, le service d'IA de l'enseignement supérieur et de la recherche.</div>
     <div id="etat">
       <div class="ligne"><span class="spin"></span><span id="etatTxt"></span></div>
       <div class="jauge"><i id="jauge"></i></div>
@@ -168,7 +169,7 @@
   </section>
 
   <footer>
-    <p>Ton document est lu dans ce navigateur, puis transmis au relais PracTice qui interroge le modèle choisi. Rien n'est conservé.</p>
+    <p>Ton document est lu dans ce navigateur, puis transmis par le relais PracTice (qui n'en garde rien) au modèle Qwen 3.6 d'<a href="https://www.ilaas.fr" target="_blank" rel="noopener">ILaaS</a>, le service d'IA mutualisé de l'enseignement supérieur et de la recherche.</p>
     <p class="credit">© 2026 Julien MORICE — <a href="mailto:julien.morice@imt-bs.eu">julien.morice@imt-bs.eu</a><br>
       Institut Mines-Télécom Business School — service PracTice</p>
   </footer>
@@ -178,20 +179,20 @@
 <script>
 /* ============================ Relais ============================ */
 /* Aucune clé dans cette page. Les appels passent par un Worker Cloudflare qui
-   détient la clé OpenRouter côté serveur (secret CLE_OPENROUTER).
-   Code du relais : dossier worker/ du projet. */
+   détient la clé ILaaS côté serveur (secret ILAAS_API_KEY) et fixe le modèle
+   (qwen-3.6-35b-instruct). Code du relais : dossier worker/ du projet. */
 const RELAIS = 'https://ateliers-de-reflexion.practice-a86.workers.dev/';
 
 /* ============================ Modèle ============================ */
-/* Modèle unique, non modifiable depuis la page : DeepSeek V4 Flash.
-   Le tilde fait partie de l'identifiant — c'est l'alias qui suit
-   automatiquement la dernière version de la famille. */
-const MODELE = '~deepseek/deepseek-v4-flash-latest';
+/* Le modèle est choisi par le relais, pas par la page. Contexte : 256 k tokens.
+   Le découpage se déclenche vers 55 % de ce contexte, à ~3,5 caractères par
+   token : un rapport de 126 pages (~400 000 caractères) part encore entier. */
+const SEUIL = 450000;
 
-/* Contexte du modèle : 1,3 M tokens. Le découpage se déclenche à ~55 % de ce
-   contexte, en comptant ~3,5 caractères par token — soit bien au-delà des
-   documents habituels, qui partent donc entiers. */
-const SEUIL = 2500000;
+/* Températures : basses à dessein. Mesuré au banc d'essai (banc_essai/) : à 0,8
+   le modèle glisse des coquilles (« garantiraistu », « mécanes ») ; à 0,3, plus aucune. */
+const TEMP_GENERATION = 0.3;
+const TEMP_EXTRACTION = 0.2;
 
 const INTRO = "Voici une série de questions ouvertes, conçues pour faire raisonner plutôt que pour vérifier des connaissances. Chacune place l'apprenant dans une situation concrète et n'admet pas de réponse unique. À utiliser en amorce de séance, en travail de groupe, en devoir de réflexion ou en fil de discussion sur votre plateforme. Reprenez-les et ajustez-les librement à votre contexte.";
 
@@ -200,13 +201,47 @@ const SYSTEME = `Tu es un ingénieur pédagogique spécialisé dans la conceptio
 
 Tu réponds UNIQUEMENT par la liste des questions. Pas de préambule, pas de commentaire, pas de titre, pas de numérotation, pas de réponses, pas de justification, pas de mention des pages sources.`;
 
+/* Amorces, exemples et conditionnel suivent la langue et la forme d'adresse
+   (auparavant « Tu es … » était imposé même en vouvoiement ou en anglais). */
+function styleQuestions(langue, adresse){
+  const l = (langue || '').toLowerCase();
+  if (l.startsWith('angl')) return {
+    adresse: `Adresse-toi directement à la personne (« you »).`,
+    amorceA: '« You are … »', amorceB: '« Imagine that you … »',
+    exemples: '« What would you do to … ? », « Which key elements should you … ? », « What steps would you follow … ? », « How would you explain … ? »',
+    second: '« and why … ? » ou « and how … ? »',
+    conditionnel: 'Utilise « would / should / could ».'
+  };
+  if (l.startsWith('espa')) {
+    const tu = adresse === 'tutoiement';
+    return {
+      adresse: tu ? `Tutoie systématiquement la personne (« tú »).` : `Vouvoie systématiquement la personne (« usted »).`,
+      amorceA: tu ? '« Eres … »' : '« Usted es … »', amorceB: tu ? '« Imaginemos que tú … »' : '« Imaginemos que usted … »',
+      exemples: tu ? '« ¿Qué harías para … ? », « ¿Qué elementos clave deberías … ? », « ¿Cómo explicarías … ? »'
+                   : '« ¿Qué haría usted para … ? », « ¿Qué elementos clave debería … ? », « ¿Cómo explicaría … ? »',
+      second: '« y por qué … ? » ou « y cómo … ? »',
+      conditionnel: 'Verbes au conditionnel (haría, debería, explicaría).'
+    };
+  }
+  const tu = adresse === 'tutoiement';
+  return {
+    adresse: tu ? `Tutoie systématiquement la personne (« tu », « ton », « tes »). N'emploie jamais « vous ».`
+                : `Vouvoie systématiquement la personne (« vous », « votre »). N'emploie jamais « tu ».`,
+    amorceA: tu ? '« Tu es … »' : '« Vous êtes … »',
+    amorceB: tu ? '« Imaginons que tu … »' : '« Imaginons que vous … »',
+    exemples: tu ? '« Que ferais-tu pour … ? », « Quels éléments clés devrais-tu … ? », « Quelles étapes suivrais-tu … ? », « Comment expliquerais-tu … ? »'
+                 : '« Que feriez-vous pour … ? », « Quels éléments clés devriez-vous … ? », « Quelles étapes suivriez-vous … ? », « Comment expliqueriez-vous … ? »',
+    second: '« et pourquoi … ? » ou « et comment … ? »',
+    conditionnel: tu ? 'Verbes au conditionnel (ferais, devrais, utiliserais, expliquerais) — jamais au présent ni au futur.'
+                     : 'Verbes au conditionnel (feriez, devriez, utiliseriez, expliqueriez) — jamais au présent ni au futur.'
+  };
+}
+
 function promptGeneration(doc, p){
+  const s = styleQuestions(p.langue, p.adresse);
   const persona = p.persona.trim()
     ? `Public visé : ${p.persona.trim()}. Toutes les questions s'adressent à cette personne.`
     : `Public visé : déduis-le toi-même (voir étape 1).`;
-  const adresse = p.adresse === 'tutoiement'
-    ? `Tutoie systématiquement la personne.`
-    : `Vouvoie systématiquement la personne (« Vous êtes… », « Que feriez-vous… »).`;
 
   return `Voici un document source :
 
@@ -216,9 +251,9 @@ ${doc}
 
 Paramètres :
 - Nombre de questions : ${p.nb}
-- Langue de sortie : ${p.langue}
+- Langue de sortie : ${p.langue} — TOUT le texte des questions est en ${p.langue}, amorces comprises.
 - ${persona}
-- ${adresse}
+- ${s.adresse}
 
 ### Étape 1 — Identifier le public visé (silencieusement)
 
@@ -242,17 +277,19 @@ Privilégie les passages qui décrivent :
 
 Chaque question suit strictement ce moule en deux temps :
 
-1. Une mise en situation qui place la personne dans un scénario concret et plausible tiré du passage source. Commence par « Tu es … » (environ 3 questions sur 5) ou « Imaginons que … » (environ 2 questions sur 5). Alterne les deux amorces, ne commence jamais deux questions consécutives par la même formule.
+1. Une mise en situation qui place la personne dans un scénario concret et plausible tiré du passage source.
+   - Questions de rang impair (1re, 3e, 5e…) : commence exactement par ${s.amorceA}
+   - Questions de rang pair (2e, 4e…) : commence exactement par ${s.amorceB}
 
-2. La question elle-même, au conditionnel, ouverte, sans réponse unique : « Que ferais-tu pour … ? », « Quels éléments clés devrais-tu … ? », « Quelles étapes devrais-tu suivre … ? », « Comment expliquerais-tu … ? ». Environ une question sur deux comporte un second volet introduit par « et pourquoi … ? » ou « et comment … ? ».
+2. La question elle-même, au conditionnel, ouverte, sans réponse unique, par exemple : ${s.exemples}. Environ une question sur deux comporte un second volet introduit par ${s.second}.
 
 Contraintes de forme :
 - Longueur : 35 à 55 mots par question, 2 à 3 phrases.
-- Verbes au conditionnel (ferais, devrais, utiliserais, expliquerais).
+- ${s.conditionnel}
 - Le fait précis issu du document doit apparaître dans la question (le seuil, le nom de la procédure, le livrable attendu…), pas seulement en toile de fond.
 - Niveaux de Bloom 3 à 5 : appliquer, analyser, évaluer. Aucune question dont la réponse serait une simple recopie du document.
 - Aucune question ne doit pouvoir se répondre par oui/non, ni par un chiffre.
-- Si le document est en anglais et la sortie en ${p.langue}, traduis les notions ; ne conserve dans la langue d'origine que les noms propres et acronymes officiels.
+- Si le document n'est pas en ${p.langue}, traduis les notions ; ne conserve dans la langue d'origine que les noms propres et acronymes officiels.
 
 ### Format de sortie
 
@@ -386,45 +423,90 @@ $('#zone').addEventListener('drop', e => {
 $('#colle').oninput = () => { majBoutons(); };
 
 /* ============================ Appel API ============================ */
-async function appeler(messages, temperature, reessai){
-  const url = RELAIS;
-  const modele = MODELE;
-
+async function appeler(messages, temperature, reessai, relance){
   const entetes = { 'Content-Type':'application/json' };
   const motDePasse = relire('adr_motdepasse');
   if (motDePasse) entetes['X-Mot-De-Passe'] = motDePasse;
 
   let r;
   try {
-    r = await fetch(url, {
+    // Flux SSE : sans lui, la passerelle ILaaS coupe les appels de plus de ~60 s.
+    r = await fetch(RELAIS, {
       method:'POST',
       headers: entetes,
-      body: JSON.stringify({ model: modele, messages, temperature, stream:false })
+      body: JSON.stringify({ messages, temperature, stream:true })
     });
   } catch(e){
     throw new Error("CORS_OU_RESEAU");
   }
   if (!r.ok){
     let d = '';
-    try { d = (await r.json())?.error?.message || ''; } catch(_){ d = await r.text().catch(()=>''); }
+    try { const j = await r.json(); d = j?.error?.message || (typeof j?.error === 'string' ? j.error : ''); }
+    catch(_){ d = await r.text().catch(()=>''); }
     // Le relais est protégé par un mot de passe : on le demande une fois, puis on retente.
     if (r.status === 401 && d === 'MOT_DE_PASSE_REQUIS'){
       if (reessai) throw new Error("Mot de passe refusé.");
       const saisi = prompt("Mot de passe de l'atelier :");
       if (!saisi) throw new Error("Mot de passe requis pour utiliser cette page.");
       memoriser('adr_motdepasse', saisi.trim());
-      return appeler(messages, temperature, true);
+      return appeler(messages, temperature, true, relance);
+    }
+    // ILaaS répartit les appels sur plusieurs serveurs ; l'un d'eux est parfois
+    // injoignable (500 ponctuel, observé en test). Une seule relance suffit.
+    if ([500, 502, 503].includes(r.status) && !relance){
+      await new Promise(ok => setTimeout(ok, 1500));
+      return appeler(messages, temperature, reessai, true);
     }
     if (r.status === 401 || r.status === 403)
       throw new Error("Le relais a refusé la requête. Préviens l'administrateur de la page.");
-    if (r.status === 402)
-      throw new Error("Le crédit de l'atelier est épuisé. Préviens l'administrateur de la page.");
+    if (r.status === 429)
+      throw new Error("Le service d'IA est très sollicité en ce moment. Réessaie dans une minute.");
+    if (r.status === 504 || d === 'TIMEOUT')
+      throw new Error("Le service d'IA n'a pas répondu à temps. Réessaie dans un instant.");
+    if (r.status === 413 || /context|too long|maximum.*tokens/i.test(d))
+      throw new Error("Le document est trop long pour le modèle. Essaie avec un extrait plus court.");
     throw new Error(`Le relais a répondu ${r.status}. ${d.slice(0,300)}`);
   }
-  const j = await r.json();
-  const t = j?.choices?.[0]?.message?.content;
-  if (!t) throw new Error("Réponse vide ou format inattendu de l'API.");
-  return t;
+  const t = await lireFlux(r);
+  if (!t.trim()) throw new Error("Réponse vide du modèle. Réessaie.");
+  return nettoyer(t);
+}
+
+// Recolle les fragments du flux SSE (le relais les transmet sans les lire).
+async function lireFlux(r){
+  const lecteur = r.body.getReader();
+  const dec = new TextDecoder('utf-8');
+  let tampon = '', texte = '';
+  const traiter = bloc => {
+    for (const l of bloc.split('\n')){
+      if (!l.startsWith('data:')) continue;
+      const d = l.slice(5).trim();
+      if (!d || d === '[DONE]') continue;
+      let j; try { j = JSON.parse(d); } catch(_){ continue; }
+      if (j.error) throw new Error("Le service d'IA a signalé une erreur en cours de génération. Réessaie.");
+      const morceau = j.choices?.[0]?.delta?.content;
+      if (typeof morceau === 'string') texte += morceau;
+    }
+  };
+  for (;;){
+    const { value, done } = await lecteur.read();
+    if (done) break;
+    tampon += dec.decode(value, { stream:true });
+    const blocs = tampon.split(/\r?\n\r?\n/);
+    tampon = blocs.pop();
+    blocs.forEach(traiter);
+  }
+  tampon += dec.decode();
+  if (tampon) traiter(tampon);
+  return texte;
+}
+
+// Retire un éventuel raisonnement affiché et répare la coquille la plus fréquente
+// du modèle : le trait d'union oublié (« garantiraistu » → « garantirais-tu »).
+function nettoyer(t){
+  return t
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/(\p{L}+rais)tu(?!\p{L})/gu, '$1-tu');
 }
 
 function decouper(txt, taille){
@@ -460,7 +542,7 @@ async function condenser(txt){
   etat(`Document volumineux — analyse de ${morceaux.length} tronçons`, 2);
   const taches = morceaux.map((m,i) => async () => {
     try {
-      const r = await appeler([{role:'user', content: promptExtraction(m, i+1, morceaux.length)}], 0.2);
+      const r = await appeler([{role:'user', content: promptExtraction(m, i+1, morceaux.length)}], TEMP_EXTRACTION);
       return r.trim() === 'RIEN' ? '' : r.trim();
     } catch(e){
       if (e.message === 'CORS_OU_RESEAU') throw e;
@@ -470,7 +552,7 @@ async function condenser(txt){
   const parts = await enParallele(taches, 4, (f,n) =>
     etat(`Analyse des tronçons — ${f} / ${n}`, f/n*85));
   const extrait = parts.filter(Boolean).join('\n');
-  if (extrait.length < 200) throw new Error("L'analyse par tronçons n'a rien remonté d'exploitable. Essaie d'augmenter le seuil de découpage ou de changer de modèle.");
+  if (extrait.length < 200) throw new Error("L'analyse par tronçons n'a rien remonté d'exploitable. Essaie avec un extrait plus ciblé du document.");
   return extrait;
 }
 
@@ -497,7 +579,7 @@ $('#go').onclick = async () => {
     const brut = await appeler([
       {role:'system', content: SYSTEME},
       {role:'user',   content: promptGeneration(source, params())}
-    ], 0.8);
+    ], TEMP_GENERATION);
 
     const questions = parserQuestions(brut);
     finEtat();

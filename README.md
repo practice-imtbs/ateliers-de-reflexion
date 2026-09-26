@@ -13,12 +13,12 @@ téléchargées en `.md`.
 ## Où est la clé
 
 Elle n'est pas ici, et c'est volontaire. La page n'embarque aucun secret : elle
-appelle un **Worker Cloudflare** qui détient la clé OpenRouter côté serveur et
+appelle un **Worker Cloudflare** qui détient la clé ILaaS côté serveur et
 relaie la requête. Ouvrir le code source de cette page ne donne accès à rien.
 
 ```
-navigateur  ──POST──▶  Worker Cloudflare  ──POST + clé──▶  OpenRouter
-(cette page)           (secret CLE_OPENROUTER)
+navigateur  ──POST──▶  Worker Cloudflare  ──POST + clé──▶  ILaaS
+(cette page)           (secret ILAAS_API_KEY)
 ```
 
 Le Worker n'accepte que les requêtes venant de ce site, borne la taille des
@@ -28,12 +28,15 @@ hors dépôt public.
 
 ## Modèle
 
-**DeepSeek V4 Flash**, fixé — il n'y a rien à choisir dans la page.
-L'identifiant `~deepseek/deepseek-v4-flash-latest` est un alias qui suit
-automatiquement la dernière version de la famille (le tilde en fait partie).
+**Qwen 3.6** (`qwen-3.6-35b-instruct`) via [ILaaS](https://www.ilaas.fr), le
+service d'inférence mutualisé de l'enseignement supérieur et de la recherche.
+Le modèle est fixé par le relais : il n'y a rien à choisir dans la page.
 
-Contexte de 1,3 M tokens : un document de 126 pages passe entier, sans
-découpage, pour environ 0,6 centime.
+Contexte de 256 k tokens : un document de 126 pages passe entier, sans
+découpage. Une génération prend quelques secondes.
+
+Les requêtes transitent par le Worker Cloudflare avant d'atteindre ILaaS ;
+le relais ne conserve rien.
 
 ## Limites
 
