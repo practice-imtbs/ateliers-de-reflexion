@@ -147,7 +147,7 @@
       <button class="second" id="copierPrompt" disabled>Copier le prompt complet</button>
       <span class="aide" style="margin:0">Pour coller le prompt dans un autre chat.</span>
     </div>
-    <div class="aide" style="margin-top:10px">Généré avec Qwen 3.6 via ILaaS, le service d'IA de l'enseignement supérieur et de la recherche.</div>
+    <div class="aide" style="margin-top:10px">Généré avec Qwen 3.8 via ILaaS, le service d'IA de l'enseignement supérieur et de la recherche.</div>
     <div id="etat">
       <div class="ligne"><span class="spin"></span><span id="etatTxt"></span></div>
       <div class="jauge"><i id="jauge"></i></div>
@@ -169,7 +169,7 @@
   </section>
 
   <footer>
-    <p>Ton document est lu dans ce navigateur, puis transmis par le relais PracTice (qui n'en garde rien) au modèle Qwen 3.6 d'<a href="https://www.ilaas.fr" target="_blank" rel="noopener">ILaaS</a>, le service d'IA mutualisé de l'enseignement supérieur et de la recherche.</p>
+    <p>Ton document est lu dans ce navigateur, puis transmis par le relais PracTice (qui n'en garde rien) au modèle Qwen 3.8 d'<a href="https://www.ilaas.fr" target="_blank" rel="noopener">ILaaS</a>, le service d'IA mutualisé de l'enseignement supérieur et de la recherche.</p>
     <p class="credit">© 2026 Julien MORICE — <a href="mailto:julien.morice@imt-bs.eu">julien.morice@imt-bs.eu</a><br>
       Institut Mines-Télécom Business School — service PracTice</p>
   </footer>
@@ -180,7 +180,7 @@
 /* ============================ Relais ============================ */
 /* Aucune clé dans cette page. Les appels passent par un Worker Cloudflare qui
    détient la clé ILaaS côté serveur (secret ILAAS_API_KEY) et fixe le modèle
-   (qwen-3.6-35b-instruct). Code du relais : dossier worker/ du projet. */
+   (qwen-3.8-27b). Code du relais : dossier worker/ du projet. */
 const RELAIS = 'https://ateliers-de-reflexion.practice-a86.workers.dev/';
 
 /* ============================ Modèle ============================ */
