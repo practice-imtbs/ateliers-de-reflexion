@@ -28,7 +28,7 @@ hors dépôt public.
 
 ## Modèle
 
-**Qwen 3.6** (`qwen-3.6-35b-instruct`) via [ILaaS](https://www.ilaas.fr), le
+**Qwen 3.8** (`qwen-3.8-27b`) via [ILaaS](https://www.ilaas.fr), le
 service d'inférence mutualisé de l'enseignement supérieur et de la recherche.
 Le modèle est fixé par le relais : il n'y a rien à choisir dans la page.
 
